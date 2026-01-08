@@ -1,0 +1,70 @@
+[package]
+name = "esp-c3-nostd-examples"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <you@example.com>"]
+license = "MIT OR Apache-2.0"
+description = "ESP32-C3 no_std examples: BLE scanner and WS2812B LED"
+
+[dependencies]
+# Core ESP dependencies (no_std bare-metal approach) - matching trouble project
+esp-hal = { version = "1.0.0", features = ["esp32c3", "unstable"] }
+esp-backtrace = { version = "0.18.1", features = ["esp32c3", "panic-handler", "println"] }
+esp-println = { version = "0.16.0", features = ["esp32c3", "log-04"] }
+esp-alloc = "0.9.0"
+esp-bootloader-esp-idf = { version = "0.4.0", features = ["esp32c3"] }
+
+# Embassy async runtime - updated to match trouble-host dependencies
+embassy-executor = "0.9.1"
+embassy-time = "0.5.0"
+embassy-futures = "0.1"
+
+# Common utilities
+log = "0.4"
+heapless = "0.8"
+
+# WS2812B LED support (using smartled trait)
+smart-leds = "0.4"
+
+# BLE support (optional) - matching trouble project
+esp-radio = { version = "0.17.0", features = ["ble", "log-04", "unstable", "esp32c3"], optional = true }
+esp-rtos = { version = "0.2.0", features = ["embassy", "esp-alloc", "log-04", "esp32c3"], optional = true }
+# Use local trouble-host from trouble project with required features
+trouble-host = { path = "/home/beattie/projects/trouble/host", features = ["central", "scan", "log"], optional = true }
+# Need bt-hci for trait bounds
+bt-hci = { version = "0.7", default-features = false, optional = true }
+
+[build-dependencies]
+embuild = "0.32"
+
+[features]
+default = []
+ble = ["esp-radio", "esp-rtos/esp-radio", "trouble-host", "bt-hci"]
+
+[profile.dev]
+opt-level = "z"
+
+[profile.release]
+opt-level = "s"
+lto = "thin"
+codegen-units = 1
+
+# Patch to use compatible versions from esp-hal git repo (matching trouble project)
+[patch.crates-io]
+esp-alloc = { git = "https://github.com/lulf/esp-hal.git", rev = "de53699d67cb097002f6c48089930a9b1638b7d6" }
+esp-backtrace = { git = "https://github.com/lulf/esp-hal.git", rev = "de53699d67cb097002f6c48089930a9b1638b7d6" }
+esp-bootloader-esp-idf = { git = "https://github.com/lulf/esp-hal.git", rev = "de53699d67cb097002f6c48089930a9b1638b7d6" }
+esp-hal = { git = "https://github.com/lulf/esp-hal.git", rev = "de53699d67cb097002f6c48089930a9b1638b7d6" }
+esp-println = { git = "https://github.com/lulf/esp-hal.git", rev = "de53699d67cb097002f6c48089930a9b1638b7d6" }
+esp-radio = { git = "https://github.com/lulf/esp-hal.git", rev = "de53699d67cb097002f6c48089930a9b1638b7d6" }
+esp-rtos = { git = "https://github.com/lulf/esp-hal.git", rev = "de53699d67cb097002f6c48089930a9b1638b7d6" }
+
+# Example binaries
+[[example]]
+name = "ws2812b_rainbow"
+path = "examples/ws2812b_rainbow.rs"
+
+[[example]]
+name = "ble_scanner"
+path = "examples/ble_scanner.rs"
+required-features = ["ble"]
