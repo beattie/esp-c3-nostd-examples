@@ -43,7 +43,8 @@ esp-c3-nostd-examples/
 ├── docs/
 │   └── AITRIP_ESP32_C3_OLED.md # Hardware documentation for Aitrip board
 ├── scripts/
-│   └── build-example.sh       # Build and flash script
+│   ├── build-example.sh       # Build and flash script
+│   └── export-esp.sh          # ESP toolchain environment setup
 ├── .cargo/
 │   └── config.toml            # Cargo configuration
 ├── build.rs                   # Linker script configuration
@@ -87,7 +88,7 @@ cd ~/projects/esp-c3-nostd-examples
 
 ```bash
 # Source ESP environment
-. ~/export-esp.sh
+. scripts/export-esp.sh
 
 # Build BLE example (requires ble feature)
 cargo build --release --example ble_scanner --features ble
@@ -144,7 +145,7 @@ All esp-* dependencies are patched to use a specific git revision from `lulf/esp
 
 ## Comparison: No-STD vs STD
 
-| Feature | This Project (no_std) | esp-c3-examples (std) |
+| Feature | This Project (no_std) | (std) |
 |---------|----------------------|----------------------|
 | Approach | Bare-metal, esp-hal | ESP-IDF, esp-idf-hal |
 | BLE Support | ✅ Yes (trouble-host) | ❌ Dependency conflicts |
@@ -158,7 +159,7 @@ All esp-* dependencies are patched to use a specific git revision from `lulf/esp
 ### ESP Environment Not Found
 ```bash
 espup install
-. ~/export-esp.sh
+. scripts/export-esp.sh
 ```
 
 ### Build Fails

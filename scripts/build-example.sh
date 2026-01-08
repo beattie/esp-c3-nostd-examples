@@ -15,8 +15,9 @@ fi
 shift
 
 echo "Loading ESP environment..."
-if [ -f ~/export-esp.sh ]; then
-    . ~/export-esp.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/export-esp.sh" ]; then
+    . "$SCRIPT_DIR/export-esp.sh"
 fi
 
 # Check if BLE features are needed
