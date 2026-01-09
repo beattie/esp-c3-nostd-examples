@@ -31,7 +31,7 @@ const L2CAP_CHANNELS_MAX: usize = 1;
 #[esp_rtos::main]
 async fn main(_spawner: Spawner) {
     esp_println::logger::init_logger_from_env();
-    log::info!("Starting BLE Scanner Example");
+    esp_println::println!("Starting BLE Scanner Example");
 
     let peripherals = esp_hal::init(esp_hal::Config::default().with_cpu_clock(CpuClock::max()));
     esp_alloc::heap_allocator!(size: 72 * 1024);
@@ -47,7 +47,7 @@ async fn main(_spawner: Spawner) {
     let connector = match BleConnector::new(bluetooth, Default::default()) {
         Ok(c) => c,
         Err(e) => {
-            log::error!("Failed to create BLE connector: {:?}", e);
+            esp_println::println!("ERROR: Failed to create BLE connector: {:?}", e);
             loop {}
         }
     };
@@ -63,7 +63,7 @@ where
 {
     // Using a fixed "random" address can be useful for testing
     let address: Address = Address::random([0xff, 0x8f, 0x1b, 0x05, 0xe4, 0xff]);
-    log::info!("Our address = {:?}", address);
+    esp_println::println!("Our address = {:?}", address);
 
     let mut resources: HostResources<DefaultPacketPool, CONNECTIONS_MAX, L2CAP_CHANNELS_MAX> = HostResources::new();
 
@@ -87,7 +87,7 @@ where
         config.window = Duration::from_secs(1);
 
         let mut _session = scanner.scan(&config).await.unwrap();
-        log::info!("Scanning for BLE devices...");
+        esp_println::println!("Scanning for BLE devices...");
 
         // Scan forever
         loop {
@@ -106,7 +106,7 @@ impl EventHandler for Printer {
         let mut seen = self.seen.borrow_mut();
         while let Some(Ok(report)) = it.next() {
             if seen.iter().find(|b| b.raw() == report.addr.raw()).is_none() {
-                log::info!("Discovered device: {:?}", report.addr);
+                esp_println::println!("Discovered device: {:?}", report.addr);
                 if seen.is_full() {
                     seen.pop_front();
                 }

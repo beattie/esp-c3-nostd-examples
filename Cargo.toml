@@ -58,6 +58,7 @@ esp-hal = { git = "https://github.com/lulf/esp-hal.git", rev = "de53699d67cb0970
 esp-println = { git = "https://github.com/lulf/esp-hal.git", rev = "de53699d67cb097002f6c48089930a9b1638b7d6" }
 esp-radio = { git = "https://github.com/lulf/esp-hal.git", rev = "de53699d67cb097002f6c48089930a9b1638b7d6" }
 esp-rtos = { git = "https://github.com/lulf/esp-hal.git", rev = "de53699d67cb097002f6c48089930a9b1638b7d6" }
+# Note: esp-hal-smartled uses crates.io version (compatible with esp-hal 1.0.0)
 
 # Example binaries
 [[example]]
