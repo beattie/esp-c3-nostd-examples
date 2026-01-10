@@ -9,6 +9,8 @@ if [ -z "$EXAMPLE_NAME" ]; then
     echo "  ws2812b_rainbow - WS2812B LED rainbow effect"
     echo "  ble_scanner     - BLE device scanner"
     echo "  embassy_hello_world - Embassy RTOS hello world example"
+	echo "  oled_display"
+	echo "  blinky         - Blink the user LED"
     exit 1
 fi
 
