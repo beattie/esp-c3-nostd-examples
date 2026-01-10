@@ -1,12 +1,14 @@
 # ESP32-C3 No-STD Examples
 
-A collection of bare-metal (no_std) Rust examples for ESP32-C3, featuring BLE scanning and WS2812B LED control.
+A collection of bare-metal (no_std) Rust examples for ESP32-C3, featuring LED blinking, BLE scanning, WS2812B LED control, OLED display graphics, and Embassy async examples.
 
 ## Why No-STD?
 
 This project uses the **no_std** (bare-metal) approach with `esp-hal` to support:
 - **BLE functionality** via `trouble-host` stack
-- **WS2812B LED control** via RMT peripheral with `esp-hal-smartled`
+- **WS2812B LED control** via RMT peripheral
+- **OLED display graphics** via SSD1306 driver with embedded-graphics
+- **Embassy async runtime** for concurrent tasks
 
 The no_std approach enables:
 - Direct hardware control with minimal overhead
@@ -16,7 +18,27 @@ The no_std approach enables:
 
 ## Examples
 
-### 1. BLE Scanner (`ble_scanner`) ✅ **WORKING**
+### 1. LED Blinky (`blinky`) ✅ **WORKING**
+Classic "Hello World" for embedded systems - blinks an LED on GPIO8.
+
+**Hardware:**
+- ESP32-C3 board with LED on GPIO8
+- Airtip ESP32-C3 OLED board (has LED on GPIO8)
+- Or external LED with current-limiting resistor on GPIO8
+
+**Run:**
+```bash
+cargo build --release --example blinky
+espflash flash --monitor target/riscv32imc-unknown-none-elf/release/examples/blinky
+```
+
+**Features:**
+- Simple GPIO output control
+- 500ms blink interval
+- No external dependencies needed
+- Perfect starting point for beginners
+
+### 2. BLE Scanner (`ble_scanner`) ✅ **WORKING**
 Scans for BLE advertisements and prints discovered devices using the Trouble BLE stack.
 
 **Hardware:**
@@ -32,7 +54,7 @@ Scans for BLE advertisements and prints discovered devices using the Trouble BLE
 - Automatically deduplicates repeated advertisements
 - Scans continuously
 
-### 2. WS2812B Rainbow (`ws2812b_rainbow`) ✅ **WORKING**
+### 3. WS2812B Rainbow (`ws2812b_rainbow`) ✅ **WORKING**
 Displays a smooth rainbow color cycle on a WS2812B addressable RGB LED using the ESP32-C3 RMT peripheral.
 
 **Hardware:**
@@ -51,19 +73,65 @@ Displays a smooth rainbow color cycle on a WS2812B addressable RGB LED using the
 - Comfortable brightness setting (30%)
 - Uses 40MHz RMT clock (80MHz base / 2 divider) for accurate timing
 
+### 4. OLED Display (`oled_display`) ✅ **WORKING**
+Demonstrates drawing text and graphics on an SSD1306 OLED display using embedded-graphics.
+
+**Hardware:**
+- Airtip ESP32-C3 OLED board or similar
+- 0.42" OLED display (72x40 pixels) on I2C (GPIO5/GPIO6)
+- Or external SSD1306 OLED connected to GPIO5 (SDA) and GPIO6 (SCL)
+
+**Run:**
+```bash
+cargo build --release --example oled_display
+espflash flash --monitor target/riscv32imc-unknown-none-elf/release/examples/oled_display
+```
+
+**Features:**
+- I2C communication with SSD1306 OLED controller
+- Graphics primitives (rectangles, circles, text)
+- Uses embedded-graphics for drawing
+- Buffered graphics mode for smooth updates
+- Works with various SSD1306 display sizes
+
+**See:** [Detailed OLED documentation](docs/oled_display.md)
+
+### 5. Embassy Hello World (`embassy_hello_world`) ✅ **WORKING**
+Simple example demonstrating Embassy async/await with concurrent tasks.
+
+**Hardware:**
+- Any ESP32-C3 board
+
+**Run:**
+```bash
+cargo build --release --example embassy_hello_world --features embassy
+espflash flash --monitor target/riscv32imc-unknown-none-elf/release/examples/embassy_hello_world
+```
+
+**Features:**
+- Embassy executor with multiple concurrent tasks
+- Async timers with embassy-time
+- Demonstrates task spawning and scheduling
+- Uses esp-rtos for Embassy integration
+
 ## Project Structure
 
 ```
 esp-c3-nostd-examples/
 ├── examples/
+│   ├── blinky.rs              # ✅ Simple LED blinky (working)
 │   ├── ble_scanner.rs         # ✅ BLE device scanner (working)
-│   └── ws2812b_rainbow.rs     # ✅ WS2812B rainbow LED (working)
+│   ├── ws2812b_rainbow.rs     # ✅ WS2812B rainbow LED (working)
+│   ├── oled_display.rs        # ✅ OLED graphics display (working)
+│   └── embassy_hello_world.rs # ✅ Embassy async example (working)
 ├── docs/
 │   ├── ESP32_C3_DevKitM_1.md  # ESP32-C3-DevKitM-1 hardware documentation
-│   └── AITRIP_ESP32_C3_OLED.md # Aitrip ESP32-C3 OLED hardware documentation
+│   ├── AITRIP_ESP32_C3_OLED.md # Aitrip ESP32-C3 OLED hardware documentation
+│   └── oled_display.md        # OLED display example guide
 ├── scripts/
 │   ├── build-example.sh       # Build and flash script
-│   └── export-esp.sh          # ESP toolchain environment setup
+│   ├── export-esp.sh          # ESP toolchain environment setup
+│   └── identify-target.sh     # Debug probe target identification
 ├── .cargo/
 │   └── config.toml            # Cargo configuration
 ├── build.rs                   # Linker script configuration
@@ -96,11 +164,23 @@ cargo install ldproxy
 ```bash
 cd ~/projects/esp-c3-nostd-examples
 
+# LED Blinky (simplest example - great starting point!)
+cargo build --release --example blinky
+espflash flash --monitor target/riscv32imc-unknown-none-elf/release/examples/blinky
+
 # BLE Scanner
 ./scripts/build-example.sh ble_scanner
 
 # WS2812B Rainbow LED
 ./scripts/build-example.sh ws2812b_rainbow
+
+# OLED Display
+cargo build --release --example oled_display
+espflash flash --monitor target/riscv32imc-unknown-none-elf/release/examples/oled_display
+
+# Embassy Hello World
+cargo build --release --example embassy_hello_world --features embassy
+espflash flash --monitor target/riscv32imc-unknown-none-elf/release/examples/embassy_hello_world
 
 # Specify port if needed
 ./scripts/build-example.sh ble_scanner --port /dev/ttyUSB0
@@ -145,12 +225,18 @@ espflash flash target/riscv32imc-unknown-none-elf/release/examples/ble_scanner -
 
 ### Default
 - Core ESP32-C3 support (no_std)
-- Basic functionality without BLE
+- Basic functionality without optional features
+- OLED display and WS2812B examples work without features
 
 ### BLE
 - Enable with `--features ble`
 - Adds Trouble BLE host stack
 - Required for BLE scanner example
+
+### Embassy
+- Enable with `--features embassy`
+- Adds esp-rtos for Embassy async runtime support
+- Required for embassy_hello_world example
 
 ## Dependencies
 
@@ -166,6 +252,10 @@ espflash flash target/riscv32imc-unknown-none-elf/release/examples/ble_scanner -
 ### WS2812B Dependencies
 - `smart-leds` 0.4 - LED color traits and utilities
 - Uses esp-hal's RMT peripheral directly for precise timing control
+
+### OLED Display Dependencies
+- `ssd1306` 0.9 - SSD1306 OLED driver with embedded-hal support
+- `embedded-graphics` 0.8 - Graphics library for drawing primitives and text
 
 ### BLE Dependencies (optional)
 - `esp-radio` 0.17.0 - ESP32 BLE/WiFi radio driver (patched)
@@ -184,6 +274,8 @@ espflash flash target/riscv32imc-unknown-none-elf/release/examples/ble_scanner -
 | Approach | Bare-metal, esp-hal | ESP-IDF, esp-idf-hal |
 | BLE Support | ✅ Yes (trouble-host) | ❌ Dependency conflicts |
 | WS2812B Support | ✅ Yes (RMT peripheral) | ✅ Yes (ws2812-esp32-rmt-driver) |
+| OLED Display | ✅ Yes (SSD1306 driver) | ✅ Yes (SSD1306 driver) |
+| Embassy Async | ✅ Yes (esp-rtos) | ✅ Yes (esp-idf-svc) |
 | Binary Size | Smaller (~300KB) | Larger |
 | Features | Limited to bare-metal | Full ESP-IDF features |
 | Complexity | More low-level control | Higher-level abstractions |
@@ -222,7 +314,22 @@ cargo build --example ble_scanner --features ble --release
 - The scanner only shows unique devices once (deduplicated)
 - Wait a few seconds for devices to appear
 
+### OLED Display Not Working
+- Check wiring: SDA on GPIO5, SCL on GPIO6, power and ground connected
+- Verify I2C address (usually 0x3C for SSD1306)
+- Ensure pull-up resistors are present (many modules have them built-in)
+- See [detailed troubleshooting guide](docs/oled_display.md#troubleshooting)
+
+### Embassy Example Fails to Build
+Make sure to enable the embassy feature:
+```bash
+cargo build --example embassy_hello_world --features embassy --release
+```
+
 ## Resources
+
+### Example Documentation
+- [OLED Display Example Guide](docs/oled_display.md) - Complete guide for SSD1306 OLED displays
 
 ### Hardware Documentation
 - [ESP32-C3-DevKitM-1 Board Guide](docs/ESP32_C3_DevKitM_1.md) - Official Espressif board documentation
@@ -238,6 +345,8 @@ cargo build --example ble_scanner --features ble --release
 - [Rust on ESP Book](https://esp-rs.github.io/book/)
 - [Trouble BLE Stack](https://github.com/embassy-rs/trouble)
 - [Embassy Async Runtime](https://embassy.dev/)
+- [embedded-graphics](https://docs.rs/embedded-graphics/) - Graphics library
+- [SSD1306 Driver](https://docs.rs/ssd1306/) - OLED display driver
 
 ## License
 

@@ -1,0 +1,30 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Example",
+            "type": "probe-run",
+            "request": "launch",
+            "preLaunchTask": "Build Example",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example",
+                    "${input:exampleName}",
+                    "--release"
+                ]
+            },
+            "executable": "target/riscv32imc-unknown-none-elf/release/examples/${input:exampleName}",
+            "chip": "ESP32-C3",
+            "probe": "J-Link",
+            "cwd": "${workspaceFolder}"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "exampleName",
+            "type": "promptString",
+            "description": "Enter the name of the example to debug"
+        }
+    ]
+}

@@ -26,6 +26,10 @@ heapless = "0.8"
 # WS2812B LED support (using smartled trait)
 smart-leds = "0.4"
 
+# OLED display support
+ssd1306 = "0.9"
+embedded-graphics = "0.8"
+
 # BLE support (optional) - matching trouble project
 esp-radio = { version = "0.17.0", features = ["ble", "log-04", "unstable", "esp32c3"], optional = true }
 esp-rtos = { version = "0.2.0", features = ["embassy", "esp-alloc", "log-04", "esp32c3"], optional = true }
@@ -40,6 +44,7 @@ embuild = "0.32"
 [features]
 default = []
 ble = ["esp-radio", "esp-rtos/esp-radio", "trouble-host", "bt-hci"]
+embassy = ["esp-rtos"]
 
 [profile.dev]
 opt-level = "z"
@@ -69,3 +74,16 @@ path = "examples/ws2812b_rainbow.rs"
 name = "ble_scanner"
 path = "examples/ble_scanner.rs"
 required-features = ["ble"]
+
+[[example]]
+name = "embassy_hello_world"
+path = "examples/embassy_hello_world.rs"
+required-features = ["embassy"]
+
+[[example]]
+name = "oled_display"
+path = "examples/oled_display.rs"
+
+[[example]]
+name = "blinky"
+path = "examples/blinky.rs"

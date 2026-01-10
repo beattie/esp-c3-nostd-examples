@@ -8,6 +8,7 @@ if [ -z "$EXAMPLE_NAME" ]; then
     echo "Available examples:"
     echo "  ws2812b_rainbow - WS2812B LED rainbow effect"
     echo "  ble_scanner     - BLE device scanner"
+    echo "  embassy_hello_world - Embassy RTOS hello world example"
     exit 1
 fi
 
@@ -20,10 +21,13 @@ if [ -f "$SCRIPT_DIR/export-esp.sh" ]; then
     . "$SCRIPT_DIR/export-esp.sh"
 fi
 
-# Check if BLE features are needed
+# Check if --features are needed
 if [ "$EXAMPLE_NAME" = "ble_scanner" ]; then
     echo "Building $EXAMPLE_NAME with BLE features..."
     FEATURES="--features ble"
+elif [ "$EXAMPLE_NAME" = "embassy_hello_world" ]; then
+    echo "Building $EXAMPLE_NAME with Embassy features..."
+    FEATURES="--features embassy"
 else
     echo "Building $EXAMPLE_NAME..."
     FEATURES=""
