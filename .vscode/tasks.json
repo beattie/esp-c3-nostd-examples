@@ -2,133 +2,55 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Build Active Example",
+            "label": "Build Example",
             "type": "shell",
-            "command": "cargo build --release --example ${fileBasenameNoExtension}",
-            "problemMatcher": [
-                "$rustc"
+            "command": "cargo",
+            "args": [
+                "build",
+                "--release",
+                "--example",
+                "${input:exampleName}",
+                "${input:features}"
             ],
+            "problemMatcher": ["$rustc"],
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Build + Flash + Monitor",
+            "type": "shell",
+            "command": "cargo build --release --example ${input:exampleName} ${input:features} && espflash flash --monitor target/riscv32imc-unknown-none-elf/release/examples/${input:exampleName}",
+            "problemMatcher": ["$rustc"],
             "group": {
                 "kind": "build",
                 "isDefault": true
             },
-            "detail": "Build the currently active example file"
-        },
-        {
-            "label": "Flash Active Example",
-            "type": "shell",
-            "command": "espflash flash --monitor target/riscv32imc-unknown-none-elf/release/examples/${fileBasenameNoExtension}",
-            "problemMatcher": [],
-            "detail": "Flash the currently active example file"
-        },
-        {
-            "label": "Build Example",
-            "type": "shell",
-            "command": "cargo build --release --example ${input:exampleName}",
-            "problemMatcher": [
-                "$rustc"
-            ],
-            "group": "build",
-            "detail": "Build a specific example"
-        },
-        {
-            "label": "Flash Example",
-            "type": "shell",
-            "command": "espflash flash --monitor target/riscv32imc-unknown-none-elf/release/examples/${input:exampleName}",
-            "problemMatcher": [],
-            "detail": "Flash a specific example"
-        },
-        {
-            "label": "Build blinky",
-            "type": "shell",
-            "command": "cargo build --release --example blinky",
-            "problemMatcher": [
-                "$rustc"
-            ],
-            "group": "build",
-            "detail": "Build the blinky example"
-        },
-        {
-            "label": "Flash blinky",
-            "type": "shell",
-            "command": "espflash flash --monitor target/riscv32imc-unknown-none-elf/release/examples/blinky",
-            "problemMatcher": [],
-            "detail": "Flash the blinky example"
-        },
-        {
-            "label": "Build ble_scanner",
-            "type": "shell",
-            "command": "cargo build --release --example ble_scanner --features ble",
-            "problemMatcher": [
-                "$rustc"
-            ],
-            "group": "build",
-            "detail": "Build the ble_scanner example"
-        },
-        {
-            "label": "Flash ble_scanner",
-            "type": "shell",
-            "command": "espflash flash --monitor target/riscv32imc-unknown-none-elf/release/examples/ble_scanner",
-            "problemMatcher": [],
-            "detail": "Flash the ble_scanner example"
-        },
-        {
-            "label": "Build embassy_hello_world",
-            "type": "shell",
-            "command": "cargo build --release --example embassy_hello_world --features embassy",
-            "problemMatcher": [
-                "$rustc"
-            ],
-            "group": "build",
-            "detail": "Build the embassy_hello_world example"
-        },
-        {
-            "label": "Flash embassy_hello_world",
-            "type": "shell",
-            "command": "espflash flash --monitor target/riscv32imc-unknown-none-elf/release/examples/embassy_hello_world",
-            "problemMatcher": [],
-            "detail": "Flash the embassy_hello_world example"
-        },
-        {
-            "label": "Build oled_display",
-            "type": "shell",
-            "command": "cargo build --release --example oled_display",
-            "problemMatcher": [
-                "$rustc"
-            ],
-            "group": "build",
-            "detail": "Build the oled_display example"
-        },
-        {
-            "label": "Flash oled_display",
-            "type": "shell",
-            "command": "espflash flash --monitor target/riscv32imc-unknown-none-elf/release/examples/oled_display",
-            "problemMatcher": [],
-            "detail": "Flash the oled_display example"
-        },
-        {
-            "label": "Build ws2812b_rainbow",
-            "type": "shell",
-            "command": "cargo build --release --example ws2812b_rainbow",
-            "problemMatcher": [
-                "$rustc"
-            ],
-            "group": "build",
-            "detail": "Build the ws2812b_rainbow example"
-        },
-        {
-            "label": "Flash ws2812b_rainbow",
-            "type": "shell",
-            "command": "espflash flash --monitor target/riscv32imc-unknown-none-elf/release/examples/ws2812b_rainbow",
-            "problemMatcher": [],
-            "detail": "Flash the ws2812b_rainbow example"
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
         }
     ],
     "inputs": [
         {
             "id": "exampleName",
             "type": "promptString",
-            "description": "Enter the name of the example to build/flash"
+            "description": "Example name (blinky, ws2812b_rainbow, oled_display, ble_scanner, embassy_hello_world)",
+            "default": "blinky"
+        },
+        {
+            "id": "features",
+            "type": "pickString",
+            "description": "Features (if needed)",
+            "options": [
+                "",
+                "--features ble",
+                "--features embassy"
+            ],
+            "default": ""
         }
     ]
 }

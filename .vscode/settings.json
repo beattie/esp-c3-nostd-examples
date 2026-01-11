@@ -1,0 +1,12 @@
+{
+    "rust-analyzer.check.allTargets": false,
+    "rust-analyzer.check.command": "clippy",
+    "rust-analyzer.cargo.target": "riscv32imc-unknown-none-elf",
+    "rust-analyzer.cargo.allFeatures": false,
+    "rust-analyzer.cargo.features": [],
+    "rust-analyzer.procMacro.enable": true,
+    "rust-analyzer.showUnlinkedFileNotification": false,
+    "files.watcherExclude": {
+        "**/target/**": true
+    }
+}
