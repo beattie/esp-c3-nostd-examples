@@ -91,7 +91,7 @@ fn main() -> ! {
         .unwrap();
     
     // Draw a small filled triangle
-    Triangle::new(Point::new(30, 35), Point::new(40, 36), Point::new(35, 28))
+    Triangle::new(Point::new(40, 35), Point::new(50, 35), Point::new(45, 28))
         .into_styled(PrimitiveStyle::with_fill(BinaryColor::On))
         .draw(&mut display)
         .unwrap();
