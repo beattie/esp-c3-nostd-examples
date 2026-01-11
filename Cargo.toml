@@ -85,5 +85,9 @@ name = "oled_display"
 path = "examples/oled_display.rs"
 
 [[example]]
+name = "oled_display_more"
+path = "examples/oled_display_more.rs"
+
+[[example]]
 name = "blinky"
 path = "examples/blinky.rs"
