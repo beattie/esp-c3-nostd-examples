@@ -2,6 +2,8 @@
 
 A collection of bare-metal (no_std) Rust examples for ESP32-C3, featuring LED blinking, BLE scanning, WS2812B LED control, OLED display graphics, and Embassy async examples.
 
+I started this repo as a place to learn Rust and BLE. It was started with help from Claude Code from anthropic.com, I also use Gemini whan I hit my limits but Gemini tends to run in circles, find more complicated solutions and dead ends. I intend migrate to developing examples without relying on AI as a way to demonstrate Rust and BLE.
+
 ## Why No-STD?
 
 This project uses the **no_std** (bare-metal) approach with `esp-hal` to support:
