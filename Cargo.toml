@@ -33,18 +33,21 @@ embedded-graphics = "0.8"
 # BLE support (optional) - matching trouble project
 esp-radio = { version = "0.17.0", features = ["ble", "log-04", "unstable", "esp32c3"], optional = true }
 esp-rtos = { version = "0.2.0", features = ["embassy", "esp-alloc", "log-04", "esp32c3"], optional = true }
-# Use local trouble-host from trouble project with required features
-trouble-host = { path = "/home/beattie/projects/trouble/host", features = ["central", "scan", "log"], optional = true }
+# Use vendored trouble-host with required features
+trouble-host = { path = "vendor/trouble-host", features = ["central", "peripheral", "scan", "derive", "log"], optional = true }
 # Need bt-hci for trait bounds
 bt-hci = { version = "0.7", default-features = false, optional = true }
+# Shared BLE example code (vendored)
+trouble-example-apps = { path = "vendor/trouble-example-apps", optional = true }
 
 [build-dependencies]
 embuild = "0.32"
 
 [features]
 default = []
-ble = ["esp-radio", "esp-rtos/esp-radio", "trouble-host", "bt-hci"]
+ble = ["esp-radio", "esp-rtos/esp-radio", "trouble-host", "bt-hci", "trouble-example-apps"]
 embassy = ["esp-rtos"]
+esp-radio = ["dep:esp-radio"]
 
 [profile.dev]
 opt-level = "z"
