@@ -6,11 +6,15 @@ EXAMPLE_NAME="$1"
 if [ -z "$EXAMPLE_NAME" ]; then
     echo "Usage: $0 <example_name> [additional_args...]"
     echo "Available examples:"
-    echo "  ws2812b_rainbow - WS2812B LED rainbow effect"
-    echo "  ble_scanner     - BLE device scanner"
-    echo "  embassy_hello_world - Embassy RTOS hello world example"
-	echo "  oled_display"
-	echo "  blinky         - Blink the user LED"
+    echo "  blinky              - Blink the user LED"
+    echo "  ws2812b_rainbow     - WS2812B LED rainbow effect"
+    echo "  oled_display        - OLED display graphics"
+    echo "  oled_display_more   - OLED display with more shapes"
+    echo "  ble_scanner         - BLE device scanner (requires ble feature)"
+    echo "  ble_bas_peripheral  - BLE Battery Service peripheral (requires ble feature)"
+    echo "  ble_clock           - BLE time display clock (requires ble feature)"
+    echo "  ble_gatt_simple     - Simple BLE GATT server (requires ble feature)"
+    echo "  embassy_hello_world - Embassy RTOS hello world (requires embassy feature)"
     exit 1
 fi
 
@@ -24,16 +28,20 @@ if [ -f "$SCRIPT_DIR/export-esp.sh" ]; then
 fi
 
 # Check if --features are needed
-if [ "$EXAMPLE_NAME" = "ble_scanner" ]; then
-    echo "Building $EXAMPLE_NAME with BLE features..."
-    FEATURES="--features ble"
-elif [ "$EXAMPLE_NAME" = "embassy_hello_world" ]; then
-    echo "Building $EXAMPLE_NAME with Embassy features..."
-    FEATURES="--features embassy"
-else
-    echo "Building $EXAMPLE_NAME..."
-    FEATURES=""
-fi
+case "$EXAMPLE_NAME" in
+    ble_scanner|ble_bas_peripheral|ble_clock|ble_gatt_simple)
+        echo "Building $EXAMPLE_NAME with BLE features..."
+        FEATURES="--features ble"
+        ;;
+    embassy_hello_world)
+        echo "Building $EXAMPLE_NAME with Embassy features..."
+        FEATURES="--features embassy"
+        ;;
+    *)
+        echo "Building $EXAMPLE_NAME..."
+        FEATURES=""
+        ;;
+esac
 
 # Build the example
 cargo build --release --example "$EXAMPLE_NAME" $FEATURES

@@ -18,6 +18,8 @@ esp-bootloader-esp-idf = { version = "0.4.0", features = ["esp32c3"] }
 embassy-executor = "0.9.1"
 embassy-time = "0.5.0"
 embassy-futures = "0.1"
+embassy-sync = { version = "0.7", optional = true }
+static_cell = { version = "2", optional = true }
 
 # Common utilities
 log = "0.4"
@@ -45,7 +47,7 @@ embuild = "0.32"
 
 [features]
 default = []
-ble = ["esp-radio", "esp-rtos/esp-radio", "trouble-host", "bt-hci", "trouble-example-apps"]
+ble = ["esp-radio", "esp-rtos/esp-radio", "trouble-host", "bt-hci", "trouble-example-apps", "embassy-sync", "static_cell"]
 embassy = ["esp-rtos"]
 esp-radio = ["dep:esp-radio"]
 
@@ -94,3 +96,18 @@ path = "examples/oled_display_more.rs"
 [[example]]
 name = "blinky"
 path = "examples/blinky.rs"
+
+[[example]]
+name = "ble_bas_peripheral"
+path = "examples/ble_bas_peripheral.rs"
+required-features = ["ble"]
+
+[[example]]
+name = "ble_clock"
+path = "examples/ble_clock.rs"
+required-features = ["ble"]
+
+[[example]]
+name = "ble_gatt_simple"
+path = "examples/ble_gatt_simple.rs"
+required-features = ["ble"]
