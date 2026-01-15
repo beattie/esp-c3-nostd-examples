@@ -10,6 +10,9 @@
 //!   - Data Characteristic (UUID: 12345678-1234-5678-1234-56789abcdef2)
 //!     Properties: Read, Write, Notify
 //!     Value: u8 data that can be read/written
+//!   - Time Characteristic (UUID: 12345678-1234-5678-1234-56789abcdef3)   
+//!     Properties: Read, Write, Notify
+//!     Value: [u8; 10] time data that can be read/written
 //!
 //! Hardware: ESP32-C3
 //!
@@ -27,12 +30,17 @@
 use embassy_executor::Spawner;
 use embassy_futures::join::join;
 use embassy_futures::select::select;
+use embassy_futures::select::select3;
 use embassy_time::Timer;
+use embassy_time::Instant;
 use esp_backtrace as _;
 use esp_hal::clock::CpuClock;
 use esp_hal::timer::timg::TimerGroup;
 use esp_radio::ble::controller::BleConnector;
 use trouble_host::prelude::*;
+use core::sync::atomic::Ordering;
+
+static UNIX_AT_BOOT: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
@@ -57,6 +65,12 @@ const DATA_CHAR_UUID: Uuid = Uuid::new_long([
     0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf2,
 ]);
 
+// Time characteristic UUID: 12345678-1234-5678-1234-56789abcdef3
+const TIME_CHAR_UUID: Uuid = Uuid::new_long([
+    0x12, 0x34, 0x56, 0x78, 0x12, 0x34, 0x56, 0x78,
+    0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf3,
+]);
+
 // GATT Server definition using procedural macros
 #[gatt_server]
 struct Server {
@@ -72,6 +86,11 @@ struct SimpleService {
     /// Data characteristic (read + write + notify)
     #[characteristic(uuid = DATA_CHAR_UUID, read, write, notify, value = 0u8)]
     data: u8,
+
+    /// Time characteristic (read + write + notify)
+    /// Value: u32 Unix timestamp (seconds since 1970-01-01)
+    #[characteristic(uuid = TIME_CHAR_UUID, read, write, notify, value = 0u32)]
+    time: u32,
 }
 
 #[esp_rtos::main]
@@ -125,6 +144,7 @@ where
     log::info!("  Service:  12345678-1234-5678-1234-56789abcdef0");
     log::info!("  Counter:  12345678-1234-5678-1234-56789abcdef1 (read, notify)");
     log::info!("  Data:     12345678-1234-5678-1234-56789abcdef2 (read, write, notify)");
+    log::info!("  Time:     12345678-1234-5678-1234-56789abcdef3 (read, write, notify)");
 
     let _ = join(ble_task(runner), async {
         loop {
@@ -133,7 +153,8 @@ where
                     log::info!("Client connected!");
                     let gatt_task = gatt_events_task(&server, &conn);
                     let counter_task = counter_update_task(&server, &conn);
-                    select(gatt_task, counter_task).await;
+                    let time_task = update_time_task(&server, &conn);
+                    select3(gatt_task, counter_task, time_task ).await;
                     log::info!("Client disconnected");
                 }
                 Err(e) => {
@@ -190,6 +211,7 @@ async fn gatt_events_task<P: PacketPool>(
 ) -> Result<(), Error> {
     let counter = server.simple_service.counter;
     let data = server.simple_service.data;
+    let time = server.simple_service.time;
 
     let reason = loop {
         match conn.next().await {
@@ -201,6 +223,8 @@ async fn gatt_events_task<P: PacketPool>(
                             log::info!("[READ] Client read Counter characteristic");
                         } else if read_event.handle() == data.handle {
                             log::info!("[READ] Client read Data characteristic");
+                        } else if read_event.handle() == time.handle {
+                            log::info!("[READ] Client read Time characteristic");
                         }
                     }
                     GattEvent::Write(write_event) => {
@@ -211,6 +235,23 @@ async fn gatt_events_task<P: PacketPool>(
                                 log::info!("[WRITE] Client wrote {} to Data characteristic", value);
                                 // Notify the client that the value changed
                                 if let Err(e) = data.notify(conn, &value).await {
+                                    log::warn!("[NOTIFY] Failed: {:?}", e);
+                                } else {
+                                    log::info!("[NOTIFY] Sent notification with value {}", value);
+                                }
+                            }
+                        } else if write_event.handle() == time.handle {
+                            let bytes = write_event.data();
+                            if bytes.len() >= 4 {
+                                let value = u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
+                                log::info!("[WRITE] Client wrote {} to Time characteristic", value);
+                                // Update the UNIX_AT_BOOT offset
+                                let now = Instant::now().as_secs() as u32;
+                                let offset = value.wrapping_sub(now);
+                                UNIX_AT_BOOT.store(offset, Ordering::Relaxed);
+                                log::info!("[TIME] Updated UNIX_AT_BOOT offset to {}", offset);
+                                // Notify the client that the value changed
+                                if let Err(e) = time.notify(conn, &value).await {
                                     log::warn!("[NOTIFY] Failed: {:?}", e);
                                 } else {
                                     log::info!("[NOTIFY] Sent notification with value {}", value);
@@ -253,5 +294,31 @@ async fn counter_update_task<P: PacketPool>(
             break;
         }
         log::info!("[NOTIFY] Sent counter notification: {}", count);
+    }
+}
+
+fn get_unix_time() -> u32 {
+    let offset = UNIX_AT_BOOT.load(Ordering::Relaxed);
+    let now = Instant::now().as_secs() as u32;
+    now.wrapping_add(offset)
+}
+
+async fn update_time_task<P: PacketPool>(
+    server: &Server<'_>,
+    conn: &GattConnection<'_, '_, P>,
+) {
+    let time = server.simple_service.time;
+
+    loop {
+        Timer::after_secs(1).await;
+        let current_time = get_unix_time();
+        log::info!("[UPDATE] Time updated to: {}", current_time);
+
+        // Notify connected client of new time value
+        if let Err(e) = time.notify(conn, &current_time).await {
+            log::warn!("[NOTIFY] Failed to notify time: {:?}", e);
+            break;
+        }
+        log::info!("[NOTIFY] Sent time notification: {}", current_time);
     }
 }
