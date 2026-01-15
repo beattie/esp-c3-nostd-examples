@@ -2,18 +2,14 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Build Example",
+            "label": "Build Example (Test Build)",
             "type": "shell",
-            "command": "cargo",
-            "args": [
-                "build",
-                "--release",
-                "--example",
-                "${input:exampleName}",
-                "${input:features}"
-            ],
+            "command": "cargo build --release --example ${input:exampleName} ${input:features}",
             "problemMatcher": ["$rustc"],
-            "group": "build",
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
             "presentation": {
                 "reveal": "always",
                 "panel": "shared"
@@ -37,8 +33,19 @@
     "inputs": [
         {
             "id": "exampleName",
-            "type": "promptString",
-            "description": "Example name (blinky, ws2812b_rainbow, oled_display, ble_scanner, embassy_hello_world)",
+            "type": "pickString",
+            "description": "Select example to build",
+            "options": [
+                "blinky",
+                "ws2812b_rainbow",
+                "oled_display",
+                "oled_display_more",
+                "ble_scanner",
+                "ble_bas_peripheral",
+                "ble_clock",
+                "ble_gatt_simple",
+                "embassy_hello_world"
+            ],
             "default": "blinky"
         },
         {
