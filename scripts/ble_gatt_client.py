@@ -16,6 +16,7 @@ Usage:
 
 import asyncio
 import sys
+import time
 from bleak import BleakClient, BleakScanner
 from bleak.exc import BleakError
 
@@ -24,20 +25,64 @@ from bleak.exc import BleakError
 SERVICE_UUID = "f0debc9a-7856-3412-7856-341278563412"
 COUNTER_CHAR_UUID = "f1debc9a-7856-3412-7856-341278563412"
 DATA_CHAR_UUID = "f2debc9a-7856-3412-7856-341278563412"
+TIME_CHAR_UUID = "f3debc9a-7856-3412-7856-341278563412"
 
 DEVICE_NAME = "ESP32-GATT"
+
+# Global state for notification counting
+counter_notification_count = 0
+ble_client = None
 
 
 def counter_notification_handler(sender, data):
     """Handle notifications from the counter characteristic."""
+    global counter_notification_count, ble_client
+
     value = int.from_bytes(data, byteorder='little')
-    print(f"  [COUNTER NOTIFICATION] Value: {value}")
+    counter_notification_count += 1
+    print(f"  [COUNTER NOTIFICATION #{counter_notification_count}] Value: {value}")
+
+    # After 3 notifications, write the current time
+    if counter_notification_count == 3:
+        print(f"\n  >>> Received 3 counter notifications, writing current time to ESP32...")
+        asyncio.create_task(write_current_time())
 
 
 def data_notification_handler(sender, data):
     """Handle notifications from the data characteristic."""
     value = int.from_bytes(data, byteorder='little')
     print(f"  [DATA NOTIFICATION] Value: {value}")
+
+
+def time_notification_handler(sender, data):
+    """Handle notifications from the time characteristic."""
+    if len(data) >= 4:
+        unix_time = int.from_bytes(data[0:4], byteorder='little')
+        print(f"  [TIME NOTIFICATION] Unix timestamp: {unix_time}")
+    else:
+        print(f"  [TIME NOTIFICATION] Data: {data.hex()}")
+
+
+async def write_current_time():
+    """Write the current Unix timestamp to the ESP32."""
+    global ble_client
+
+    if ble_client is None:
+        print("  ERROR: Client not connected")
+        return
+
+    # Get current Unix timestamp (as u32 - works until 2106)
+    current_time = int(time.time())
+    print(f"  Current Unix time: {current_time}")
+
+    # Convert to 4-byte little-endian u32
+    time_bytes = current_time.to_bytes(4, byteorder='little')
+
+    try:
+        await ble_client.write_gatt_char(TIME_CHAR_UUID, time_bytes)
+        print(f"  ✓ Time written successfully: {current_time}")
+    except Exception as e:
+        print(f"  ✗ Failed to write time: {e}")
 
 
 async def find_device():
@@ -74,6 +119,7 @@ async def find_device():
 
 async def main():
     """Main function to interact with the BLE GATT server."""
+    global ble_client
 
     # Find the device
     address = await find_device()
@@ -86,6 +132,7 @@ async def main():
 
     try:
         async with BleakClient(address) as client:
+            ble_client = client  # Set global reference for notification handlers
             print(f"  Connected: {client.is_connected}")
 
             # List all services and characteristics
@@ -96,10 +143,11 @@ async def main():
                     props = ', '.join(char.properties)
                     print(f"    Characteristic: {char.uuid} ({props})")
 
-            # Enable notifications on both characteristics
+            # Enable notifications on all characteristics
             print(f"\nEnabling notifications...")
             await client.start_notify(COUNTER_CHAR_UUID, counter_notification_handler)
             await client.start_notify(DATA_CHAR_UUID, data_notification_handler)
+            await client.start_notify(TIME_CHAR_UUID, time_notification_handler)
             print("  Notifications enabled")
 
             # Read the counter characteristic
@@ -142,6 +190,7 @@ async def main():
             print("\nDisabling notifications...")
             await client.stop_notify(COUNTER_CHAR_UUID)
             await client.stop_notify(DATA_CHAR_UUID)
+            await client.stop_notify(TIME_CHAR_UUID)
 
             print("\nDemo complete!")
 
@@ -153,6 +202,8 @@ async def main():
         import traceback
         traceback.print_exc()
         return 1
+    finally:
+        ble_client = None  # Clear global reference
 
     return 0
 
