@@ -3,6 +3,9 @@
 Cargo.lock
 **/*.rs.bk
 
+# Python
+__pycache__/
+
 # ESP-IDF
 .embuild/
 sdkconfig
