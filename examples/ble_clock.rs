@@ -1,6 +1,7 @@
-//! Simple BLE GATT Server Example
+//! BLE Clock with OLED Display Example
 //!
-//! This example demonstrates a minimal BLE GATT server with readable and writable characteristics.
+//! This example demonstrates a BLE GATT server with time synchronization and OLED display.
+//! The clock receives time from a BLE client and displays it on an OLED screen.
 //!
 //! GATT Structure:
 //! - Service UUID: 12345678-1234-5678-1234-56789abcdef0
@@ -10,17 +11,25 @@
 //!   - Data Characteristic (UUID: 12345678-1234-5678-1234-56789abcdef2)
 //!     Properties: Read, Write, Notify
 //!     Value: u8 data that can be read/written
-//!   - Time Characteristic (UUID: 12345678-1234-5678-1234-56789abcdef3)   
+//!   - Time Characteristic (UUID: 12345678-1234-5678-1234-56789abcdef3)
 //!     Properties: Read, Write, Notify
-//!     Value: [u8; 10] time data that can be read/written
+//!     Value: u32 Unix timestamp (seconds since 1970-01-01)
+//!   - Timezone Characteristic (UUID: 12345678-1234-5678-1234-56789abcdef4)
+//!     Properties: Read, Write
+//!     Value: i8 timezone offset from UTC in quarter hours (-48 to +56)
+//!            Supports 15-minute increments (e.g., 22 = UTC+5:30 for India)
 //!
-//! Hardware: ESP32-C3
+//! Hardware:
+//! - Airtip ESP32-C3 OLED board (or similar with SSD1306 display)
+//! - 0.42" OLED display (72x40 visible pixels) on I2C
+//! - SDA: GPIO5
+//! - SCL: GPIO6
 //!
 //! Run with:
-//! ESP_LOG=info cargo run --release --example ble_gatt_simple --features ble
+//! ESP_LOG=info cargo run --release --example ble_clock --features ble
 //!
 //! Or use the build script:
-//! ESP_LOG=info ./scripts/build-example.sh ble_gatt_simple
+//! ESP_LOG=info ./scripts/build-example.sh ble_clock
 //!
 //! Connect from Linux using the provided Python script: scripts/ble_gatt_client.py
 
@@ -29,18 +38,32 @@
 
 use embassy_executor::Spawner;
 use embassy_futures::join::join;
-use embassy_futures::select::select;
 use embassy_futures::select::select3;
 use embassy_time::Timer;
 use embassy_time::Instant;
 use esp_backtrace as _;
 use esp_hal::clock::CpuClock;
+use esp_hal::i2c::master::{I2c, Config};
 use esp_hal::timer::timg::TimerGroup;
+use esp_hal::Blocking;
 use esp_radio::ble::controller::BleConnector;
 use trouble_host::prelude::*;
 use core::sync::atomic::Ordering;
+use core::fmt::Write;
+use embedded_graphics::{
+    mono_font::{MonoTextStyle, ascii::FONT_6X10},
+    pixelcolor::BinaryColor,
+    prelude::*,
+    primitives::{PrimitiveStyle, Rectangle},
+    text::Text,
+};
+use ssd1306::{I2CDisplayInterface, Ssd1306};
+use ssd1306::mode::DisplayConfig;
+use ssd1306::size::DisplaySize72x40;
+use ssd1306::rotation::DisplayRotation;
 
 static UNIX_AT_BOOT: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
+static TIMEZONE_OFFSET: core::sync::atomic::AtomicI8 = core::sync::atomic::AtomicI8::new(0);
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
@@ -71,6 +94,12 @@ const TIME_CHAR_UUID: Uuid = Uuid::new_long([
     0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf3,
 ]);
 
+// Timezone characteristic UUID: 12345678-1234-5678-1234-56789abcdef4
+const TIMEZONE_CHAR_UUID: Uuid = Uuid::new_long([
+    0x12, 0x34, 0x56, 0x78, 0x12, 0x34, 0x56, 0x78,
+    0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf4,
+]);
+
 // GATT Server definition using procedural macros
 #[gatt_server]
 struct Server {
@@ -91,15 +120,29 @@ struct SimpleService {
     /// Value: u32 Unix timestamp (seconds since 1970-01-01)
     #[characteristic(uuid = TIME_CHAR_UUID, read, write, notify, value = 0u32)]
     time: u32,
+
+    /// Timezone characteristic (read + write)
+    /// Value: i8 offset from UTC in quarter hours (-48 to +56)
+    /// Quarter hours support 15-minute increments (e.g., India UTC+5:30 = 22)
+    #[characteristic(uuid = TIMEZONE_CHAR_UUID, read, write, value = 0i8)]
+    timezone: i8,
 }
 
 #[esp_rtos::main]
-async fn main(_s: Spawner) {
+async fn main(spawner: Spawner) {
     esp_println::logger::init_logger_from_env();
-    log::info!("=== Simple BLE GATT Server Starting ===");
+    log::info!("=== BLE Clock with Display Starting ===");
 
     let peripherals = esp_hal::init(esp_hal::Config::default().with_cpu_clock(CpuClock::max()));
     esp_alloc::heap_allocator!(size: 72 * 1024);
+
+    // Initialize I2C for OLED display
+    // Airtip ESP32-C3 OLED: SDA=GPIO5, SCL=GPIO6
+    let i2c = I2c::new(peripherals.I2C0, Config::default())
+        .unwrap()
+        .with_sda(peripherals.GPIO5)
+        .with_scl(peripherals.GPIO6);
+    log::info!("I2C initialized on GPIO5 (SDA) and GPIO6 (SCL)");
 
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     #[cfg(target_arch = "riscv32")]
@@ -111,6 +154,10 @@ async fn main(_s: Spawner) {
         #[cfg(target_arch = "riscv32")]
         software_interrupt.software_interrupt0,
     );
+
+    // Spawn display task to run independently
+    spawner.spawn(display_task(i2c)).expect("Failed to spawn display task");
+    log::info!("Display task spawned");
 
     let bluetooth = peripherals.BT;
     let connector = BleConnector::new(bluetooth, Default::default()).unwrap();
@@ -145,6 +192,7 @@ where
     log::info!("  Counter:  12345678-1234-5678-1234-56789abcdef1 (read, notify)");
     log::info!("  Data:     12345678-1234-5678-1234-56789abcdef2 (read, write, notify)");
     log::info!("  Time:     12345678-1234-5678-1234-56789abcdef3 (read, write, notify)");
+    log::info!("  Timezone: 12345678-1234-5678-1234-56789abcdef4 (read, write)");
 
     let _ = join(ble_task(runner), async {
         loop {
@@ -164,6 +212,55 @@ where
         }
     })
     .await;
+}
+
+/// Display task - updates OLED with current time every second
+#[embassy_executor::task]
+async fn display_task(i2c: I2c<'static, Blocking>) {
+    // Create display interface
+    let interface = I2CDisplayInterface::new(i2c);
+
+    // Create SSD1306 display driver
+    // The Airtip board uses a 72x40 visible area, but SSD1306 buffer is 128x64
+    let mut display = Ssd1306::new(interface, DisplaySize72x40, DisplayRotation::Rotate0)
+        .into_buffered_graphics_mode();
+
+    display.init().unwrap();
+    display.clear_buffer();
+
+    let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
+
+    log::info!("Display initialized");
+    loop {
+        let unix_time = get_unix_time();
+        let (hours, minutes, seconds) = unix_to_time_of_day(unix_time);
+
+        display.clear_buffer();
+
+        // Draw border
+        Rectangle::new(Point::new(0, 0), Size::new(72, 40))
+            .into_styled(PrimitiveStyle::with_stroke(BinaryColor::On, 1))
+            .draw(&mut display)
+            .unwrap();
+
+        // Erase block for time
+        Rectangle::new(Point::new(5, 0), Size::new(62, 16))
+            .into_styled(PrimitiveStyle::with_fill(BinaryColor::Off))
+            .draw(&mut display)
+            .unwrap();
+            
+        // Draw time in HH:MM:SS format (use fixed-size buffer for no_std)
+        let mut time_text = heapless::String::<16>::new();
+        write!(time_text, "{:02}:{:02}:{:02}", hours, minutes, seconds).unwrap();
+        Text::new(&time_text, Point::new(12, 8), text_style)
+            .draw(&mut display)
+            .unwrap();
+
+        // Flush to display
+        display.flush().unwrap();
+
+        Timer::after_secs(1).await;
+    }
 }
 
 /// Background BLE task (must run continuously)
@@ -212,6 +309,7 @@ async fn gatt_events_task<P: PacketPool>(
     let counter = server.simple_service.counter;
     let data = server.simple_service.data;
     let time = server.simple_service.time;
+    let timezone = server.simple_service.timezone;
 
     let reason = loop {
         match conn.next().await {
@@ -255,6 +353,24 @@ async fn gatt_events_task<P: PacketPool>(
                                     log::warn!("[NOTIFY] Failed: {:?}", e);
                                 } else {
                                     log::info!("[NOTIFY] Sent notification with value {}", value);
+                                }
+                            }
+                        } else if write_event.handle() == timezone.handle {
+                            let bytes = write_event.data();
+                            if !bytes.is_empty() {
+                                // Read as signed i8 (quarter hours)
+                                let quarter_hours = bytes[0] as i8;
+
+                                // Validate range: UTC-12:00 to UTC+14:00 (-48 to +56 quarter hours)
+                                if quarter_hours >= -48 && quarter_hours <= 56 {
+                                    TIMEZONE_OFFSET.store(quarter_hours, Ordering::Relaxed);
+
+                                    // Log in human-readable format
+                                    let hours = quarter_hours / 4;
+                                    let minutes = (quarter_hours.abs() % 4) * 15;
+                                    log::info!("[WRITE] Timezone set to UTC{:+}:{:02}", hours, minutes);
+                                } else {
+                                    log::warn!("[WRITE] Invalid timezone offset: {} (must be -48 to +56 quarter hours)", quarter_hours);
                                 }
                             }
                         }
@@ -301,6 +417,30 @@ fn get_unix_time() -> u32 {
     let offset = UNIX_AT_BOOT.load(Ordering::Relaxed);
     let now = Instant::now().as_secs() as u32;
     now.wrapping_add(offset)
+}
+
+/// Convert Unix timestamp to LOCAL time of day (hours, minutes, seconds)
+/// Applies timezone offset for display
+fn unix_to_time_of_day(unix_time: u32) -> (u8, u8, u8) {
+    // Get timezone offset (in quarter hours)
+    let tz_quarter_hours = TIMEZONE_OFFSET.load(Ordering::Relaxed) as i32;
+
+    // Apply timezone offset (quarter_hours * 15 minutes * 60 seconds)
+    let tz_seconds = tz_quarter_hours * 15 * 60;
+    let local_unix_time = (unix_time as i32) + tz_seconds;
+
+    // Handle negative wrap (shouldn't happen in practice with valid timestamps)
+    let local_unix_time = if local_unix_time < 0 {
+        0
+    } else {
+        local_unix_time as u32
+    };
+
+    let seconds_in_day = local_unix_time % 86400; // 86400 = seconds in a day
+    let hours = (seconds_in_day / 3600) as u8;
+    let minutes = ((seconds_in_day % 3600) / 60) as u8;
+    let seconds = (seconds_in_day % 60) as u8;
+    (hours, minutes, seconds)
 }
 
 async fn update_time_task<P: PacketPool>(
