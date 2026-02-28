@@ -2,6 +2,20 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "Build (bme280)",
+            "type": "shell",
+            "command": "cargo build --features embassy",
+            "problemMatcher": ["$rustc"],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
             "label": "Build Example (Test Build)",
             "type": "shell",
             "command": "cargo build --release --example ${input:exampleName} ${input:features}",
@@ -22,7 +36,7 @@
             "problemMatcher": ["$rustc"],
             "group": {
                 "kind": "build",
-                "isDefault": true
+                "isDefault": false
             },
             "presentation": {
                 "reveal": "always",

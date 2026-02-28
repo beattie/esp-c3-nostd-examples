@@ -21,6 +21,9 @@ embassy-futures = "0.1"
 embassy-sync = { version = "0.7", optional = true }
 static_cell = { version = "2", optional = true }
 
+# Async embedded HAL traits
+embedded-hal-async = "1.0.0"
+
 # Common utilities
 log = "0.4"
 heapless = "0.8"
