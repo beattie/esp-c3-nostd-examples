@@ -17,6 +17,8 @@ use embassy_time::{Duration, Timer};
 use esp_backtrace as _;
 use esp_hal::i2c::master::{Config as I2cConfig, I2c};
 use esp_rtos::main;
+use esp_hal::timer::timg::TimerGroup;
+use esp_hal::interrupt::software::SoftwareInterruptControl;
 
 esp_bootloader_esp_idf::esp_app_desc!();
 
@@ -26,6 +28,10 @@ async fn main(_spawner: embassy_executor::Spawner) {
     log::info!("BME280 driver starting");
 
     let peripherals = esp_hal::init(esp_hal::Config::default());
+
+    let sw_int = SoftwareInterruptControl::new(peripherals.SW_INTERRUPT);
+    let timg0 = TimerGroup::new(peripherals.TIMG0);
+    esp_rtos::start(timg0.timer0, sw_int.software_interrupt0);
 
     // Set up I2C — same pins as your C project
     let i2c = I2c::new(peripherals.I2C0, I2cConfig::default())
@@ -48,10 +54,11 @@ async fn main(_spawner: embassy_executor::Spawner) {
         match sensor.read().await {
             Ok(r) => {
                 log::info!(
-                    "Temp: {}.{:02} C  Pressure: {} Pa  Humidity: {}.{:02} %",
+                    "Temp: {}.{:02} C  Pressure: {}.{} hPa  Humidity: {}.{:02} %",
                     r.temperature_cdeg / 100,
                     r.temperature_cdeg.abs() % 100,
-                    r.pressure_pa,
+                    (r.pressure_pa >> 8) / 100,
+                    (r.pressure_pa >> 8) % 100,
                     r.humidity_pct / 100,
                     r.humidity_pct % 100,
                 );

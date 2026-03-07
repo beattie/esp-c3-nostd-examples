@@ -49,7 +49,7 @@ trouble-example-apps = { path = "vendor/trouble-example-apps", optional = true }
 embuild = "0.32"
 
 [features]
-default = []
+default = ["embassy"]
 ble = ["esp-radio", "esp-rtos/esp-radio", "trouble-host", "bt-hci", "trouble-example-apps", "embassy-sync", "static_cell"]
 embassy = ["esp-rtos"]
 esp-radio = ["dep:esp-radio"]
